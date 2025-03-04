@@ -5,3 +5,13 @@
 /caches/
 /certificates/
 
+*.log
+*.txt
+*.pfx
+*.ccache
+*.csv
+*.ntds
+*.dit
+*.hash
+
+.vscode
