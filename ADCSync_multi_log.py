@@ -202,6 +202,7 @@ def authenticate_accounts(accounts, dc_ip, proxychains, output_file):
                         try:
                             ntlm_hash = output.split('\n')[-1].split(': ')[1]
                             out_file.write(f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n')
+                            out_file.flush()  # Ensure immediate write to file
                             print((f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n'))
                         except IndexError:
                             logger.error(f"❌ Error: Failed to parse NTLM hash for {account.username}: {output}")

