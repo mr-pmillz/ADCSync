@@ -125,8 +125,8 @@ def get_dc_netbios_from_fqdn(dc_fqdn: str) -> str:
     return dc_netbios_domain
 
 def fetch_cert(account, ca_name, dc_ip, dc_fqdn, user, password, template, target, debug, proxychains):
-    upn = f"'{account.spn}'"
-    sid = f"'{account.sid}'"
+    upn = f'{account.spn}'
+    sid = account.sid
     dc_netbios_domain = get_dc_netbios_from_fqdn(dc_fqdn)
     pfx_file = f"{account.usernameLower}_{dc_netbios_domain}.pfx"
     pfx_filepath = os.path.join(certificates_folder, pfx_file)

