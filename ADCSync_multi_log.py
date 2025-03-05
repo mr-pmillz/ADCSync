@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import logging
+import argparse
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -65,7 +66,7 @@ class AccountInfo:
 
 @dataclass
 class AccountList:
-    accounts: List[AccountInfo] = field(default_factory=list)
+    accounts: List[AccountInfo] = field(default_factory=list) # Ensure the list is initialized
 
 # Determine optimal thread count
 # MAX_THREADS = min(32, os.cpu_count() * 2)
@@ -96,14 +97,23 @@ def get_json_data(json_file: str):
 def extract_accounts(data):
     """Extract accounts from JSON data."""
     accounts = AccountList()
-    for item in data['nodes']:
-        if item['props']['enabled']:
-            name = str(item['props']['name']).lower()
-            sid = item['props']['objectid']
-            baseDomainAD = str(item['props']['domain']).lower()
-            justUsernameLower = str(item['props']['samaccountname']).lower()
-            justUsername = str(item['props']['samaccountname'])
-            accounts.accounts.append(AccountInfo(spn=name, sid=sid, domain=baseDomainAD, username=justUsername, usernameLower=justUsernameLower))
+    try:
+        items = data.get('nodes', data.get('data', []))  # Try both structures
+        for item in items:
+            props = item.get('props') or item.get('Properties')  # Check both keys
+            if props and props.get('enabled'):
+                name = str(props.get('name', '')).lower()
+                sid = props.get('objectid', '')
+                baseDomainAD = str(props.get('domain', '')).lower()
+                justUsernameLower = str(props.get('samaccountname', '')).lower()
+                justUsername = props.get('samaccountname', '')
+                accounts.accounts.append(
+                    AccountInfo(spn=name, sid=sid, domain=baseDomainAD, username=justUsername, usernameLower=justUsernameLower)
+                )
+    except (IndexError, KeyError, TypeError) as e:
+        logger.error(f"❌ Error extracting accounts: {e}")
+        return accounts  # Return empty accounts list if an error occurs
+
     logger.success(f"✅ Found {len(accounts.accounts)} enabled accounts.")
     return accounts
 
@@ -211,8 +221,6 @@ def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target
     logger.success("🎉 ADCSync process completed successfully!")
 
 if __name__ == '__main__':
-    import argparse
-
     parser = argparse.ArgumentParser(description="Retrieve NTLM hashes via ADCS ESC1 technique.")
     parser.add_argument('-f', '--file', help='Input User List JSON file from Bloodhound', required=True)
     parser.add_argument('-o', '--output', help='NTLM Hash Output file', required=True)

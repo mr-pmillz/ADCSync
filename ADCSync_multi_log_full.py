@@ -97,14 +97,23 @@ def get_json_data(json_file: str):
 def extract_accounts(data):
     """Extract accounts from JSON data."""
     accounts = AccountList()
-    for item in data['nodes']:
-        if item['props']['enabled']:
-            name = str(item['props']['name']).lower()
-            sid = item['props']['objectid']
-            baseDomainAD = str(item['props']['domain']).lower()
-            justUsernameLower = str(item['props']['samaccountname']).lower()
-            justUsername = str(item['props']['samaccountname'])
-            accounts.accounts.append(AccountInfo(spn=name, sid=sid, domain=baseDomainAD, username=justUsername, usernameLower=justUsernameLower))
+    try:
+        items = data.get('nodes', data.get('data', []))  # Try both structures
+        for item in items:
+            props = item.get('props') or item.get('Properties')  # Check both keys
+            if props and props.get('enabled'):
+                name = str(props.get('name', '')).lower()
+                sid = props.get('objectid', '')
+                baseDomainAD = str(props.get('domain', '')).lower()
+                justUsernameLower = str(props.get('samaccountname', '')).lower()
+                justUsername = props.get('samaccountname', '')
+                accounts.accounts.append(
+                    AccountInfo(spn=name, sid=sid, domain=baseDomainAD, username=justUsername, usernameLower=justUsernameLower)
+                )
+    except (IndexError, KeyError, TypeError) as e:
+        logger.error(f"❌ Error extracting accounts: {e}")
+        return accounts  # Return empty accounts list if an error occurs
+
     logger.success(f"✅ Found {len(accounts.accounts)} enabled accounts.")
     return accounts
 
