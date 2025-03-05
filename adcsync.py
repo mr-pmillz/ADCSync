@@ -36,6 +36,19 @@ def parse_args():
 
     return parser.parse_args()
 
+def get_json_data(json_file: str):
+    # Read the JSON data from the file
+    if not os.path.exists(json_file):
+        print(f"Error: File '{json_file}' not found.")
+        exit(1)
+
+    try:
+        with open(json_file, 'r', encoding='utf-8') as file_obj:
+            return json.load(file_obj)
+    except json.JSONDecodeError:
+        print(f"Error: The file '{json_file}' does not contain valid JSON.")
+        exit(1)
+
 @dataclass
 class AccountInfo:
     spn: str
@@ -50,19 +63,7 @@ class AccountList:
     accounts: List[AccountInfo] = field(default_factory=list)  # Ensure the list is initialized
 
 def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target, debug, proxychains):
-    # Read the JSON data from the file
-    if not os.path.exists(file):
-        print(f"Error: File '{file}' not found.")
-        exit(1)
-
-    try:
-        with open(file, 'r', encoding='utf-8') as file_obj:
-            data = json.load(file_obj)
-    except json.JSONDecodeError:
-        print(f"Error: The file '{file}' does not contain valid JSON.")
-        exit(1)
-
-
+    data = get_json_data(file)
     accounts = AccountList()
     # Extract the "name", "objectid", samaccountname, and domain values
     for item in data['nodes']:

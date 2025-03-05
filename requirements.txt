@@ -2,3 +2,5 @@ certipy-ad
 tqdm
 pyfiglet
 ldap3
+rich
+
