@@ -117,6 +117,10 @@ def extract_accounts(data):
     logger.success(f"✅ Found {len(accounts.accounts)} enabled accounts.")
     return accounts
 
+def get_dc_netbios_from_fqdn(dc_fqdn: str) -> str:
+    dc_netbios_domain = dc_fqdn.split('.')[0].lower()
+    return dc_netbios_domain
+
 def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output_file, debug):
     """Retrieve certificates using Certipy."""
     logger.info(f"🔄 Retrieving certificates for {len(accounts.accounts)} accounts...")
@@ -124,6 +128,27 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
     def fetch_cert_and_auth(account):
         upn = f'{account.spn}'
         sid = account.sid
+        dc_netbios_domain = get_dc_netbios_from_fqdn(dc_fqdn)
+        pfx_file = f"{account.usernameLower}_{dc_netbios_domain}.pfx"
+        pfx_filepath = os.path.join(certificates_folder, pfx_file)
+        pfx_file_no_domain = f"{account.usernameLower}.pfx"
+        pfx_file_no_domain_path = os.path.join(certificates_folder, pfx_file_no_domain)
+        # Skip if the certificate file already exists
+        if os.path.exists(pfx_file):
+            if debug:
+                logger.debug(f"skipping {upn}, pfx file already exists")
+            account.pfx_filepath = pfx_file
+            return account, None, None
+        if os.path.exists(pfx_filepath):
+            if debug:
+                logger.debug(f"skipping {upn}, pfx file already exists")
+            account.pfx_filepath = pfx_filepath
+            return account, None, None
+        if os.path.exists(pfx_file_no_domain_path):
+            if debug:
+                logger.debug(f"skipping {upn}, pfx file already exists")
+            account.pfx_filepath = pfx_file_no_domain_path
+            return account, None, None
         if proxychains:
             command = [
                 'proxychains4', certipy_client, 'req', '-username', user, '-password', password, '-dc-ip', dc_ip, '-ca', ca_name, '-target', target,

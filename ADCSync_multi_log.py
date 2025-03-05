@@ -131,6 +131,9 @@ def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, tar
         dc_netbios_domain = get_dc_netbios_from_fqdn(dc_fqdn)
         pfx_file = f"{account.usernameLower}_{dc_netbios_domain}.pfx"
         pfx_filepath = os.path.join(certificates_folder, pfx_file)
+        pfx_file_no_domain = f"{account.usernameLower}.pfx"
+        pfx_file_no_domain_path = os.path.join(certificates_folder, pfx_file_no_domain)
+        # Skip if the certificate file already exists
         if os.path.exists(pfx_file):
             if debug:
                 logger.debug(f"skipping {upn}, pfx file already exists")
@@ -140,6 +143,11 @@ def retrieve_certificates(accounts, user, password, dc_ip, dc_fqdn, ca_name, tar
             if debug:
                 logger.debug(f"skipping {upn}, pfx file already exists")
             account.pfx_filepath = pfx_filepath
+            return account, None, None
+        if os.path.exists(pfx_file_no_domain_path):
+            if debug:
+                logger.debug(f"skipping {upn}, pfx file already exists")
+            account.pfx_filepath = pfx_file_no_domain_path
             return account, None, None
         if proxychains:
             command = [
