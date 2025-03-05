@@ -170,10 +170,11 @@ def auth_account(account, dc_ip, proxychains):
     if not account.pfx_filepath.endswith('.pfx'):
         return None
     if proxychains:
-        command = ['echo', '0', '|', 'proxychains4', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-domain', account.domain, '-dc-ip', dc_ip]
+        command = f'echo 0 | proxychains4 {certipy_client} auth -pfx {account.pfx_filepath} -domain {account.domain} -dc-ip {dc_ip}'
     else:
-        command = ['echo', '0', '|', certipy_client, 'auth', '-pfx', account.pfx_filepath, '-domain', account.domain, '-dc-ip', dc_ip]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        command = f'echo 0 | {certipy_client} auth -pfx {account.pfx_filepath} -domain {account.domain} -dc-ip {dc_ip}'
+
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
     stdout, stderr = process.communicate()
     if "Got error" in stdout:
         logger.error(f"❌ Error: Failed to authenticate for {account.username}: {stdout}")
