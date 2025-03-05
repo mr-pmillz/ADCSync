@@ -198,8 +198,6 @@ def process_certipy_auth(account, stdout, output):
 def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target, debug, proxychains):
     data = get_json_data(file)
     accounts = extract_accounts(data)
-    print(accounts)
-    exit(0)
 
     for account in tqdm(accounts.accounts, total=len(accounts.accounts), desc="ADCSync ESC1"):
         # Execute certipy req command for each name
