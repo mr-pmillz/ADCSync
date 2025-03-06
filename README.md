@@ -9,7 +9,7 @@ This is the first version of the tool and essentially just automates the process
 This fork supports proxychains, both bloodhound formats such as raw users.json from SharpHound.exe or manually exported JSON from the old BloodHound.
 It will also skip accounts that it already got hashes from and resume where you left off if you get disconnected for whatever reason during runtime.
 Various other nice to haves.
-There are multiple scripts, adcsync.py is single-threaded. The ADCSync_multi_.py files are all multi-threaded with 10 workers by default using Python's ThreadPoolExecutor.
+There are multiple scripts, adcsync.py is single-threaded. The ADCSync_multi_.py files are all multi-threaded with 4 workers by default using Python's ThreadPoolExecutor.
 This also supports the -sid flag in Certipy which is now required for ESC1.
 You can choose which users you want to target. Export whatever custom BloodHound neo4j query results to a JSON file that contains the desired accounts.
 For example:
