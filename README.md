@@ -45,23 +45,27 @@ To use this tool we need the following things:
 ```shell
 # python3 ADCSync_multi_log_full_with_retry.py --help
 
-usage: ADCSync_multi_log_full_with_retry.py [-h] -f FILE -o OUTPUT -ca-name CA_NAME -dc-ip DC_IP -dc-fqdn DC_FQDN -u USER -p PASSWORD -template TEMPLATE -target TARGET [-debug] [-proxychains]
+usage: ADCSync_multi_log_full_with_retry.py [-h] -f FILE -o OUTPUT -ca-name CA_NAME
+                                            -dc-ip DC_IP -dc-fqdn DC_FQDN -u USER
+                                            -p PASSWORD -template TEMPLATE -target TARGET
+                                            [-t THREADS] [-debug] [-proxychains]
 
 Retrieve NTLM hashes via ADCS ESC1 technique.
 
 options:
   -h, --help            show this help message and exit
-  -f FILE, --file FILE  Input User List JSON file from Bloodhound
-  -o OUTPUT, --output OUTPUT
-                        NTLM Hash Output file
+  -f, --file FILE       Input User List JSON file from Bloodhound
+  -o, --output OUTPUT   NTLM Hash Output file
   -ca-name CA_NAME      Certificate Authority
   -dc-ip DC_IP          IP Address of Domain Controller
   -dc-fqdn DC_FQDN      FQDN of Domain Controller
-  -u USER, --user USER  Username
-  -p PASSWORD, --password PASSWORD
+  -u, --user USER       Username
+  -p, --password PASSWORD
                         Password
   -template TEMPLATE    Template Name vulnerable to ESC1
   -target TARGET        CA FQDN
+  -t, --threads THREADS
+                        Number of threads to use. (default=4)
   -debug                Show verbose debugging information
   -proxychains          Use proxychains4
 ```

