@@ -226,7 +226,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--password', help='Password', required=True)
     parser.add_argument('-template', help='Template Name vulnerable to ESC1', required=True)
     parser.add_argument('-target', help='CA FQDN', required=True)
-    parser.add_argument('-t', '--threads', default=4, help='Number of threads to use. (default=4)')
+    parser.add_argument('-t', '--threads', type=int, default=4, help='Number of threads to use. (default=4)')
     parser.add_argument('-debug', action='store_true', help='Show verbose debugging information')
     parser.add_argument('-proxychains', action='store_true', help='Use proxychains4')
 
