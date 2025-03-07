@@ -71,10 +71,6 @@ class AccountInfo:
 class AccountList:
     accounts: List[AccountInfo] = field(default_factory=list) # Ensure the list is initialized
 
-# Determine optimal thread count
-# MAX_THREADS = min(32, os.cpu_count() * 2)
-MAX_THREADS = 10
-
 # Create the "certificates" folder if it doesn't exist
 certificates_folder = 'certificates'
 if not os.path.exists(certificates_folder):
@@ -162,7 +158,7 @@ def fetch_cert(account, ca_name, dc_ip, dc_fqdn, user, password, template, targe
     if "Failed to connect" in process.stdout:
         logger.error(f"⏳ Connection failed for account: {account.usernameLower}")
         return None
-    
+
     # Move the generated .pfx file to the "certificates" folder if it exists
     for filename in os.listdir('.'):
         if filename.endswith('.pfx') and filename.startswith(account.usernameLower):
@@ -214,7 +210,7 @@ def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target
         if debug:
             logger.debug(stdout)
             logger.debug(stderr)
-    
+
         # Certipy auth command for account
         authed_account, auth_stdout, auth_stderr = auth_account(req_account, dc_ip, proxychains)
         if debug:
