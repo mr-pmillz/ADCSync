@@ -88,9 +88,15 @@ python3 ADCSync_multi_log_full_with_retry.py -f all-ad.corp.local-users.json \
 
 ## Detection
 
+By default, ADCS does not monitor/audit the following event logs.
+
 * Event ID 4898: This event is generated every time a certificate template is loaded during enrollment. It records - in detail - the properties and security descriptor of the certificate template.
 * Event ID 4887: This event is generated when a certificate is successfully issued to a user.
 * Event ID 4888: This event is generated when a certificate request is denied.
+
+In order to enable auditing for these events, you need to check all the following boxes in the ADCS Certificate Authority -> Properties -> Auditing configuration, and apply the settings.
+
+![ADCS Certificate Authority Enable Monitoring](imgs/adcs-settings.png)
 
 ## TODO
 
