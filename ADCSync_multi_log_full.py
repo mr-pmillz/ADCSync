@@ -158,11 +158,14 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
         if dns_tcp:
             command.append('-dns-tcp')
         if dns != '':
-            command.append('-dns', dns)
+            command.append('-dns')
+            command.append(dns)
         if timeout != '':
-            command.append('-timeout', timeout)
+            command.append('-timeout')
+            command.append(timeout)
         if name_server != '':
-            command.append('-ns', name_server) # usually the same value as -dc-ip arg
+            command.append('-ns') # usually the same value as -dc-ip arg
+            command.append(name_server)
         if ldap_channel_binding:
             command.append('-ldap-channel-binding')
         req_process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
