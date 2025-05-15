@@ -168,6 +168,8 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
             command.append(name_server)
         if ldap_channel_binding:
             command.append('-ldap-channel-binding')
+        if debug:
+            print(f'[+] {' '.join(command)}')
         req_process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if "Failed to connect" in req_process.stdout:
             logger.error(f"⏳ Connection failed for account: {account.usernameLower}")
