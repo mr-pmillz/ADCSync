@@ -230,6 +230,11 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--password', help='Password', required=True)
     parser.add_argument('-template', help='Template Name vulnerable to ESC1', required=True)
     parser.add_argument('-target', help='CA FQDN', required=True)
+    parser.add_argument('-dns-tcp', action='store_true', help='use dns-tcp for proxychains4')
+    parser.add_argument('-dns', help='the DC FQDN, useful for proxychains4')
+    parser.add_argument('-ns', '--name-server', help='name server, useful for proxychains, should be the same as the dc-ip value most of the time')
+    parser.add_argument('-timeout', help='timeout value for dns resolution, useful for proxychains4')
+    parser.add_argument('-ldap-channel-binding', action='store_true', help='useful if target requires ldap channel binding')
     parser.add_argument('-debug', action='store_true', help='Show verbose debugging information')
     parser.add_argument('-proxychains', action='store_true', help='Use proxychains4')
 

