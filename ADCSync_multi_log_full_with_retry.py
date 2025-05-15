@@ -270,5 +270,5 @@ if __name__ == '__main__':
     parser.add_argument('-proxychains', action='store_true', help='Use proxychains4')
 
     args = parser.parse_args()
-    main(args.file, args.output, args.ca_name, args.dc_ip, args.dc_fqdn, args.user, args.password, args.template, args.target, args.debug, args.proxychains, args.threads)
+    main(args.file, args.output, args.ca_name, args.dc_ip, args.dc_fqdn, args.user, args.password, args.template, args.target, args.dns_tcp, args.dns, args.name_server, args.timeout, args.ldap_channel_binding, args.debug, args.proxychains, args.threads)
 
