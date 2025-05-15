@@ -102,7 +102,7 @@ def extract_accounts(data):
             props = item.get('props') or item.get('Properties')  # Check both keys
             if props and props.get('enabled'):
                 name = str(props.get('name', '')).lower()
-                sid = props.get('objectid', '')
+                sid = props.get('objectid') or item.get('ObjectIdentifier') # check both keys. ObjectIdentifier is for BloodHound-CE users JSON
                 baseDomainAD = str(props.get('domain', '')).lower()
                 justUsernameLower = str(props.get('samaccountname', '')).lower()
                 justUsername = props.get('samaccountname', '')
