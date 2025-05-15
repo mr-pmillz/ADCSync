@@ -25,12 +25,15 @@ ADCSync uses the ESC1 exploit to dump NTLM hashes from user accounts in an Activ
 
 ## Installation
 
-```
+```shell
 git clone https://github.com/mr-pmillz/ADCSync.git
 cd ADCSync
 virtualenv -p python3 venv
 source venv/bin/activate
 python3 -m pip install -r requirements.txt
+
+# if environment is using ldap channel binding, need to run the following also until certipy v5 is released:
+python3 -m pip install git+https://github.com/ly4k/ldap3 # support for ldap channel binding in certipy v4.8.2
 ```
 
 ## Usage
