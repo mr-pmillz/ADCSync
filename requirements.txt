@@ -2,3 +2,4 @@ certipy-ad
 tqdm
 pyfiglet
 rich
+ldap3>=2.9.2
