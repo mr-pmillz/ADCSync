@@ -1,4 +1,4 @@
-certipy-ad==4.8.2
+certipy-ad==5.0.4
 tqdm
 pyfiglet
 rich
